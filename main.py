@@ -1,31 +1,31 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from models import Expense
 from sqlalchemy import insert, select
 from database import engine, expenses
 
 app = FastAPI()
 
-# Модель для валідації запитів
-class Expense(BaseModel):
-    amount: float
-    currency: str
-    category: str
+# статика тепер окремо
+app.mount("/static", StaticFiles(directory="static", html=True), name="static")
+
 
 @app.post("/expenses")
-def add_expense(expense: Expense):
-    stmt = insert(expenses).values(
-        amount=expense.amount,
-        currency=expense.currency,
-        category=expense.category
-    )
+def create_expense(expense: Expense):
     with engine.connect() as conn:
+        stmt = insert(expenses).values(
+            amount=expense.amount,
+            currency=expense.currency,
+            category=expense.category
+        )
         conn.execute(stmt)
         conn.commit()
-    return {"status": "ok", "expense": expense.dict()}
+    return {"message": "Expense added"}
+
 
 @app.get("/expenses")
-def get_expenses():
-    stmt = select(expenses)
+def list_expenses():
     with engine.connect() as conn:
-        result = conn.execute(stmt).mappings().all()
-    return {"expenses": result}
+        stmt = select(expenses)
+        result = conn.execute(stmt).fetchall()
+    return [dict(row._mapping) for row in result]

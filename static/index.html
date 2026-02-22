@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Expense Tracker</title>
+</head>
+<body>
+
+<h2>Add expense</h2>
+
+<input id="amount" placeholder="Amount">
+<input id="currency" placeholder="Currency">
+<input id="category" placeholder="Category">
+<button onclick="addExpense()">Add Expense</button>
+
+<h2>Expenses list</h2>
+<ul id="list"></ul>
+
+<script>
+async function addExpense() {
+    const data = {
+        amount: Number(document.getElementById("amount").value),
+        currency: document.getElementById("currency").value,
+        category: document.getElementById("category").value
+    };
+
+    await fetch("http://127.0.0.1:8000/expenses", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(data)
+    });
+
+    loadExpenses();
+}
+
+async function loadExpenses() {
+    const res = await fetch("http://127.0.0.1:8000/expenses");
+    const expenses = await res.json();
+
+    const list = document.getElementById("list");
+    list.innerHTML = "";
+
+    expenses.forEach(e => {
+        const li = document.createElement("li");
+        li.innerText = `${e.amount} ${e.currency} (${e.category})`;
+        list.appendChild(li);
+    });
+}
+
+loadExpenses();
+</script>
+
+</body>
+</html>

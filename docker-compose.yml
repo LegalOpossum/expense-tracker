@@ -7,4 +7,13 @@ services:
       POSTGRES_PASSWORD: trackerpass
       POSTGRES_DB: trackerdb
     ports:
-    - "5433:5432"
+      - "5433:5432"
+
+  web:
+    build: .
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
