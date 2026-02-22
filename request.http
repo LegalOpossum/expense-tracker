@@ -1,0 +1,9 @@
+
+POST http://127.0.0.1:8000/expenses
+Content-Type: application/json
+
+{
+  "amount": 100,
+  "currency": "USD",
+  "category": "food"
+}

@@ -1,0 +1,10 @@
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: tracker
+      POSTGRES_PASSWORD: trackerpass
+      POSTGRES_DB: trackerdb
+    ports:
+    - "5433:5432"
