@@ -15,15 +15,34 @@ body {
     padding: 40px;
 }
 
-.container {
-    width: 430px;
+.container { width: 430px; }
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
 }
 
-h2 {
-    font-weight: 500;
-    margin-top: 0;
-    text-align: center
+.app-title {
+    font-size: 16px;
+    opacity: 0.9;
 }
+
+.icon-btn {
+    width: auto;
+    padding: 10px 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.06);
+    color: white;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+    transition: 0.25s;
+}
+.icon-btn:hover { background: rgba(255,255,255,0.14); transform: translateY(-1px); }
+
+h2 { font-weight: 500; margin: 0 0 10px 0; text-align: center; }
 
 .glass {
     background: rgba(255,255,255,0.05);
@@ -34,21 +53,28 @@ h2 {
     margin-bottom: 20px;
 }
 
+label {
+    display: block;
+    font-size: 12px;
+    opacity: 0.75;
+    margin-top: 10px;
+    margin-bottom: 6px;
+}
+
 input, select {
-    
-    margin-top: 8px;
-    margin-bottom: 12px;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 10px;
     padding: 12px;
     border-radius: 12px;
     border: none;
     background: rgba(255,255,255,0.07);
     color: white;
     outline: none;
+    box-sizing: border-box;
 }
 
-input::placeholder {
-    color: rgba(255,255,255,0.5);
-}
+input::placeholder { color: rgba(255,255,255,0.5); }
 
 button {
     width: 100%;
@@ -62,17 +88,15 @@ button {
     transition: 0.25s;
     margin-top: 6px;
 }
+button:hover { background: rgba(255,255,255,0.18); transform: translateY(-1px); }
 
-button:hover {
-    background: rgba(255,255,255,0.18);
-    transform: translateY(-1px);
+.row {
+    display: flex;
+    gap: 10px;
 }
+.row > div { flex: 1; }
 
-ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
+ul { list-style: none; padding: 0; margin: 0; }
 
 li {
     background: rgba(255,255,255,0.04);
@@ -85,14 +109,63 @@ li {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 10px;
 }
 
+.actions { display: flex; gap: 6px; }
 .actions button {
     width: auto;
     padding: 6px 10px;
-    margin-left: 6px;
+    margin: 0;
     font-size: 12px;
 }
+
+.muted { opacity: 0.7; font-size: 12px; }
+.badge { font-size: 11px; opacity: 0.75; }
+
+hr.sep {
+    border: none;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    margin: 14px 0;
+}
+
+/* Modal */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+.modal {
+    width: 460px;
+    max-width: 100%;
+    background: rgba(20,20,20,0.75);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 18px;
+    padding: 16px;
+    backdrop-filter: blur(16px);
+}
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.modal-title { font-weight: 600; }
+.modal-close {
+    width: auto;
+    padding: 8px 10px;
+    border-radius: 12px;
+}
+.small-btn {
+    width: auto;
+    padding: 10px 12px;
+}
+.success { color: #9EF2B0; }
+.warn { color: #F2C69E; }
 </style>
 </head>
 
@@ -100,53 +173,162 @@ li {
 
 <div class="container">
 
-<div class="glass">
-<h2>Add expense</h2>
+    <div class="header">
+        <div class="app-title">Expense Tracker</div>
+        <button class="icon-btn" onclick="openSettings()" title="Settings">⚙️</button>
+    </div>
 
-<input id="amount" placeholder="Amount">
+    <div class="glass">
+        <h2>Add expense</h2>
 
-<select id="currency">
-    <option value="USD">USD</option>
-    <option value="EUR">EUR</option>
-    <option value="UAH">UAH</option>
-</select>
+        <label for="amount">Amount</label>
+        <input id="amount" placeholder="100">
 
-<input id="category" placeholder="Сategory">
+        <label for="currency">Currency</label>
+        <select id="currency">
+            <option value="UAH">UAH</option>
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+            <option value="PLN">PLN</option>
+            <option value="GBP">EGBP</option>
+        </select>
+        <div id="fx-box" class="muted" style="margin-top:-4px; margin-bottom:10px;">
+          Loading rate…
+        </div>
 
-<button onclick="addExpense()">Add Expense</button>
+        <label for="category">Category</label>
+        <input id="category" placeholder="Food / Transport / etc">
+
+        <button onclick="addExpense()">Add Expense</button>
+    </div>
+
+    <div class="glass">
+        <h2>Filter expenses</h2>
+
+        <label for="filter-category">Category</label>
+        <select id="filter-category">
+            <option value="">All</option>
+        </select>
+
+        <div class="row">
+            <div>
+                <label for="filter-from">From</label>
+                <input id="filter-from" type="date">
+            </div>
+            <div>
+                <label for="filter-to">To</label>
+                <input id="filter-to" type="date">
+            </div>
+        </div>
+
+        <button onclick="loadExpenses()">Apply Filter</button>
+
+        <hr class="sep">
+
+        <h2>Monobank statement</h2>
+        
+
+        <button onclick="syncMonobank()">Sync from Monobank</button>
+
+        <div id="mono-status" class="muted" style="margin-top:10px;"></div>
+        <ul id="mono-list" style="margin-top:12px;"></ul>
+    </div>
+
+    <div class="glass">
+        <h2>Expenses list</h2>
+        <ul id="list"></ul>
+    </div>
+
 </div>
 
-<div class="glass">
-<h2>Filter expenses</h2>
+<!-- Settings Modal -->
+<div id="settings-overlay" class="modal-overlay">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title">Settings</div>
+            <button class="icon-btn modal-close" onclick="closeSettings()">✕</button>
+        </div>
 
-<div style="margin-bottom:10px;">
-    Category:
-    <select id="filter-category">
-        <option value="">All</option>
-    </select>
-</div>
+        <div class="muted">
+            Вставте сюди <b>персональний токен</b> monobank. Він збережеться <b>локально в браузері</b>.
+        </div>
 
-<div style="margin-bottom:10px;">
-    From:
-    <input id="filter-from" type="date">
-</div>
+        <label for="mono-token">Monobank token</label>
+        <input id="mono-token" placeholder="paste token here">
 
-<div style="margin-bottom:10px;">
-    To:
-    <input id="filter-to" type="date">
-</div>
+        <div class="row">
+            <button class="small-btn" onclick="saveToken()">Save</button>
+            <button class="small-btn" onclick="clearToken()">Clear</button>
+        </div>
 
-<button onclick="loadExpenses()">Apply Filter</button>
-</div>
+        <div id="token-status" class="muted" style="margin-top:10px;"></div>
 
-<div class="glass">
-<h2>Expenses list</h2>
-<ul id="list"></ul>
-</div>
+       
 
+       
+    </div>
 </div>
 
 <script>
+/* -------------------------
+   Helpers
+------------------------- */
+
+function isoToUnixSeconds(isoDate, endOfDay=false) {
+    // isoDate: "YYYY-MM-DD"
+    if (!isoDate) return null;
+    const dt = endOfDay
+        ? new Date(isoDate + "T23:59:59")
+        : new Date(isoDate + "T00:00:00");
+    return Math.floor(dt.getTime() / 1000);
+}
+
+function getSavedToken() {
+    return localStorage.getItem("monoToken") || "";
+}
+
+/* -------------------------
+   Settings modal
+------------------------- */
+
+function openSettings() {
+    document.getElementById("settings-overlay").style.display = "flex";
+    document.getElementById("mono-token").value = getSavedToken();
+    renderTokenStatus();
+}
+
+function closeSettings() {
+    document.getElementById("settings-overlay").style.display = "none";
+}
+
+function saveToken() {
+    const token = document.getElementById("mono-token").value.trim();
+    localStorage.setItem("monoToken", token);
+    renderTokenStatus(true);
+}
+
+function clearToken() {
+    localStorage.removeItem("monoToken");
+    document.getElementById("mono-token").value = "";
+    renderTokenStatus(true);
+}
+
+function renderTokenStatus(afterAction=false) {
+    const token = getSavedToken();
+    const el = document.getElementById("token-status");
+    if (!token) {
+        el.innerHTML = `<span class="warn">Token is not set.</span>`;
+        return;
+    }
+    const tail = token.length > 6 ? token.slice(-6) : token;
+    el.innerHTML = `<span class="success">Token saved</span> <span class="badge">(…${tail})</span>` +
+                   (afterAction ? ` <span class="muted">— ok</span>` : ``);
+}
+
+/* -------------------------
+   Existing tracker logic
+------------------------- */
+
 async function addExpense() {
     const data = {
         amount: Number(document.getElementById("amount").value),
@@ -170,18 +352,9 @@ async function loadExpenses() {
     const dateTo = document.getElementById("filter-to").value;
 
     const params = new URLSearchParams();
-
     if (category) params.append("category", category);
-
-    // якщо вибрана дата ВІД
-    if (dateFrom) {
-        params.append("date_from", dateFrom + "T00:00:00");
-    }
-
-    // якщо вибрана дата ДО
-    if (dateTo) {
-        params.append("date_to", dateTo + "T23:59:59");
-    }
+    if (dateFrom) params.append("date_from", dateFrom + "T00:00:00");
+    if (dateTo) params.append("date_to", dateTo + "T23:59:59");
 
     const res = await fetch("/expenses?" + params.toString());
     const expenses = await res.json();
@@ -191,7 +364,19 @@ async function loadExpenses() {
 
     expenses.forEach(e => {
         const li = document.createElement("li");
-        li.innerText = `${e.amount} ${e.currency} (${e.category}) - ${new Date(e.created_at).toLocaleDateString()}`;
+
+        li.innerHTML = `
+            <div class="item-row">
+                <div>
+                    <b>${e.amount} ${e.currency}</b><br>
+                    <small>${e.category} • ${new Date(e.created_at).toLocaleDateString()}</small>
+                </div>
+                <div class="actions">
+                    <button onclick="editExpense(${e.id})">Edit</button>
+                    <button onclick="deleteExpense(${e.id})">Delete</button>
+                </div>
+            </div>
+        `;
         list.appendChild(li);
     });
 }
@@ -228,19 +413,9 @@ async function loadCategories() {
     const res = await fetch("/expenses");
     const expenses = await res.json();
 
-    const uniqueCategories = [...new Set(expenses.map(e => e.category))];
+    const uniqueCategories = [...new Set(expenses.map(e => e.category).filter(Boolean))];
 
-    const categorySelect = document.getElementById("category");
     const filterSelect = document.getElementById("filter-category");
-
-    categorySelect.innerHTML = "";
-    uniqueCategories.forEach(cat => {
-        const option = document.createElement("option");
-        option.value = cat;
-        option.innerText = cat;
-        categorySelect.appendChild(option);
-    });
-
     filterSelect.innerHTML = "<option value=''>All</option>";
     uniqueCategories.forEach(cat => {
         const option = document.createElement("option");
@@ -250,6 +425,209 @@ async function loadCategories() {
     });
 }
 
+/* -------------------------
+   Monobank currency: fill currency select
+   Public endpoint /bank/currency is cached & updates about every 5 minutes. :contentReference[oaicite:3]{index=3}
+------------------------- */
+
+
+let fxRates = {};      
+let fxUpdatedAt = null;
+
+const CODE_TO_ISO = {
+  980: "UAH",
+  840: "USD",
+  978: "EUR",
+  826: "GBP",
+  985: "PLN"
+};
+
+function pickRate(item) {
+  
+  return item.rateCross ?? item.rateSell ?? item.rateBuy ?? null;
+}
+
+loadCurrenciesFromMonobank();
+loadCategories();
+loadExpenses();
+
+
+async function loadCurrenciesFromMonobank() {
+  try {
+    const res = await fetch("https://api.monobank.ua/bank/currency");
+    if (!res.ok) throw new Error("Monobank currency fetch failed");
+    const data = await res.json();
+
+    fxRates = {};
+    fxUpdatedAt = null;
+
+    // Збираємо курси X/UAH (де currencyCodeB = 980)
+    for (const item of data) {
+      if (item.currencyCodeB !== 980) continue; // нас цікавить тільки до UAH
+      const isoA = CODE_TO_ISO[item.currencyCodeA];
+      if (!isoA) continue;
+
+      const rate = pickRate(item);
+      if (!rate) continue;
+
+      fxRates[isoA] = { uah: rate, ts: item.date };
+      if (!fxUpdatedAt || item.date > fxUpdatedAt) fxUpdatedAt = item.date;
+    }
+
+    // Валюти для селекта: завжди UAH + ті, для яких є курс до UAH
+    const currencySelect = document.getElementById("currency");
+    const available = ["UAH", ...Object.keys(fxRates).sort()];
+    currencySelect.innerHTML = "";
+    for (const cur of available) {
+      const opt = document.createElement("option");
+      opt.value = cur;
+      opt.innerText = cur;
+      currencySelect.appendChild(opt);
+    }
+
+    updateFxUI();
+  } catch (e) {
+    console.warn(e);
+    document.getElementById("fx-box").textContent =
+      "FX: can’t load rates (monobank unavailable).";
+  }
+}
+
+function updateFxUI() {
+  const fxBox = document.getElementById("fx-box");
+  const cur = document.getElementById("currency").value;
+  const amount = Number(document.getElementById("amount").value);
+
+  if (cur === "UAH") {
+    fxBox.textContent = fxUpdatedAt
+      ? `FX updated: ${new Date(fxUpdatedAt * 1000).toLocaleString()} • UAH selected`
+      : "UAH selected";
+    return;
+  }
+
+  const rateObj = fxRates[cur];
+  if (!rateObj) {
+    fxBox.textContent = `No rate for ${cur}/UAH in monobank feed`;
+    return;
+  }
+
+  const rate = rateObj.uah;
+  const approx = Number.isFinite(amount) && amount > 0 ? (amount * rate) : null;
+
+  const updated = rateObj.ts ? new Date(rateObj.ts * 1000).toLocaleString() : "";
+  fxBox.textContent = approx
+    ? `1 ${cur} ≈ ${rate} UAH • ${amount} ${cur} ≈ ${approx.toFixed(2)} UAH • updated ${updated}`
+    : `1 ${cur} ≈ ${rate} UAH • updated ${updated}`;
+}
+
+
+document.getElementById("currency").addEventListener("change", updateFxUI);
+document.getElementById("amount").addEventListener("input", updateFxUI);
+
+/* -------------------------
+   Monobank statement sync
+------------------------- */
+
+function setMonoStatus(text, cls="muted") {
+    const el = document.getElementById("mono-status");
+    el.className = cls;
+    el.textContent = text;
+}
+
+function renderMonobankList(items) {
+    const ul = document.getElementById("mono-list");
+    ul.innerHTML = "";
+
+    if (!items || items.length === 0) {
+        ul.innerHTML = `<li><div class="muted">No operations in this period.</div></li>`;
+        return;
+    }
+
+    items.forEach(op => {
+        const li = document.createElement("li");
+
+        const dt = op.time ? new Date(op.time * 1000) : null;
+        const dateText = dt ? dt.toLocaleString() : "";
+
+        li.innerHTML = `
+            <div class="item-row">
+                <div>
+                    <b>${op.amount} ${op.currency}</b><br>
+                    <small>${op.description || "Monobank"} • ${dateText}</small>
+                </div>
+                <div class="actions">
+                    <button onclick='addMonoOperationToTracker(${JSON.stringify(op).replace(/'/g, "&apos;")})'>Add to tracker</button>
+                </div>
+            </div>
+        `;
+        ul.appendChild(li);
+    });
+}
+
+async function syncMonobank() {
+    const token = getSavedToken();
+    if (!token) {
+        setMonoStatus("Token is not set. Open Settings (⚙️) and paste token first.", "warn");
+        return;
+    }
+
+    // беремо період з полів фільтру
+    const dateFrom = document.getElementById("filter-from").value;
+    const dateTo = document.getElementById("filter-to").value;
+
+    const fromSec = isoToUnixSeconds(dateFrom, false);
+    const toSec = dateTo ? isoToUnixSeconds(dateTo, true) : Math.floor(Date.now() / 1000);
+
+    if (!fromSec) {
+        setMonoStatus("Please set From date (filter) to sync statement.", "warn");
+        return;
+    }
+
+    setMonoStatus("Sync in progress…");
+
+
+    const res = await fetch("/monobank/statement", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            token,
+            account: "0",
+            from: fromSec,
+            to: toSec
+        })
+    });
+
+    if (!res.ok) {
+        const txt = await res.text();
+        setMonoStatus("Sync failed: " + txt, "warn");
+        return;
+    }
+
+    const items = await res.json();
+    setMonoStatus(`Synced: ${items.length} operations.`);
+    renderMonobankList(items);
+}
+
+async function addMonoOperationToTracker(op) {
+
+    const data = {
+        amount: Number(op.amount),
+        currency: op.currency,
+        category: op.category || (op.description ? op.description.slice(0, 40) : "Monobank")
+    };
+
+    await fetch("/expenses", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(data)
+    });
+
+    await loadCategories();
+    loadExpenses();
+}
+
+
+loadCurrenciesFromMonobank();
 loadCategories();
 loadExpenses();
 </script>

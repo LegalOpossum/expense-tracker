@@ -4,8 +4,60 @@ from models import Expense
 from sqlalchemy import insert, select, update, delete, and_
 from database import engine, expenses
 from datetime import datetime
+from pydantic import BaseModel, Field
+import requests
+from fastapi import HTTPException
 
 app = FastAPI()
+
+class MonoStatementRequest(BaseModel):
+    token: str
+    account: str = "0"
+    from_ts: int = Field(alias="from")
+    to_ts: int = Field(alias="to")
+
+
+@app.post("/monobank/statement")
+def monobank_statement(data: MonoStatementRequest):
+    url = f"https://api.monobank.ua/personal/statement/{data.account}/{data.from_ts}/{data.to_ts}"
+
+    headers = {
+        "X-Token": data.token
+    }
+
+    response = requests.get(url, headers=headers)
+
+    # ❌ якщо помилка від monobank
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=response.status_code,
+            detail=response.text
+        )
+
+    operations = response.json()
+
+    result = []
+
+    for op in operations:
+        # Monobank зберігає суми в КОПІЙКАХ
+        amount = abs(op.get("amount", 0)) / 100
+
+        # код валюти → ISO
+        currency_map = {
+            980: "UAH",
+            840: "USD",
+            978: "EUR"
+        }
+        currency = currency_map.get(op.get("currencyCode"), "UAH")
+
+        result.append({
+            "time": op.get("time"),
+            "amount": amount,
+            "currency": currency,
+            "description": op.get("description", "Monobank")
+        })
+
+    return result
 
 # Статика тепер окремо
 app.mount("/static", StaticFiles(directory="static", html=True), name="static")
