@@ -39,7 +39,7 @@ def monobank_statement(data: MonoStatementRequest):
     result = []
 
     for op in operations:
-        # Monobank зберігає суми в КОПІЙКАХ
+        
         amount = abs(op.get("amount", 0)) / 100
 
         # код валюти → ISO
@@ -59,7 +59,7 @@ def monobank_statement(data: MonoStatementRequest):
 
     return result
 
-# Статика тепер окремо
+
 app.mount("/static", StaticFiles(directory="static", html=True), name="static")
 
 
