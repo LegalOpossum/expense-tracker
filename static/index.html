@@ -10,12 +10,51 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     background: radial-gradient(circle at top, #1b1b1b, #0b0b0b);
     color: white;
-    display: flex;
-    justify-content: center;
-    padding: 40px;
+    padding: 28px;
 }
 
-.container { width: 430px; }
+
+.layout {
+    display: grid;
+    grid-template-columns: 360px minmax(420px, 640px) minmax(360px, 520px);
+    gap: 18px;
+    align-items: start;
+
+    max-width: 1400px;   
+    margin: 0 auto;      
+}
+
+.topbar {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+
+.topbar .app-title {
+    font-size: 28px;
+    opacity: 0.95;
+    letter-spacing: 0.2px;
+}
+
+
+.sidebar {
+    position: sticky;
+    top: 18px;
+}
+
+/* Центр */
+.main {
+    min-width: 0;
+}
+
+/* Права панель */
+.right {
+    position: sticky;
+    top: 18px;
+    min-width: 0;
+}
 
 .header {
     display: flex;
@@ -24,8 +63,18 @@ body {
     margin-bottom: 14px;
 }
 
+
+@media (max-width: 1180px) {
+    .layout {
+        grid-template-columns: 1fr;
+    }
+    .sidebar, .right {
+        position: static;
+    }
+}
+
 .app-title {
-    font-size: 16px;
+    font-size: 30px;
     opacity: 0.9;
 }
 
@@ -171,72 +220,95 @@ hr.sep {
 
 <body>
 
-<div class="container">
+<div class="layout">
 
-    <div class="header">
-        <div class="app-title">Expense Tracker</div>
-        <button class="icon-btn" onclick="openSettings()" title="Settings">⚙️</button>
+    <div class="topbar">
+      <div class="app-title">Expense Tracker</div>
     </div>
 
-    <div class="glass">
-        <h2>Add expense</h2>
+    
+    <div class="sidebar">
 
-        <label for="amount">Amount</label>
-        <input id="amount" placeholder="100">
-
-        <label for="currency">Currency</label>
-        <select id="currency">
-            <option value="UAH">UAH</option>
-            <option value="USD">USD</option>
-            <option value="EUR">EUR</option>
-            <option value="PLN">PLN</option>
-            <option value="GBP">EGBP</option>
-        </select>
-        <div id="fx-box" class="muted" style="margin-top:-4px; margin-bottom:10px;">
-          Loading rate…
-        </div>
-
-        <label for="category">Category</label>
-        <input id="category" placeholder="Food / Transport / etc">
-
-        <button onclick="addExpense()">Add Expense</button>
-    </div>
-
-    <div class="glass">
-        <h2>Filter expenses</h2>
-
-        <label for="filter-category">Category</label>
-        <select id="filter-category">
-            <option value="">All</option>
-        </select>
-
-        <div class="row">
-            <div>
-                <label for="filter-from">From</label>
-                <input id="filter-from" type="date">
-            </div>
-            <div>
-                <label for="filter-to">To</label>
-                <input id="filter-to" type="date">
-            </div>
-        </div>
-
-        <button onclick="loadExpenses()">Apply Filter</button>
-
-        <hr class="sep">
-
-        <h2>Monobank statement</h2>
         
 
-        <button onclick="syncMonobank()">Sync from Monobank</button>
+        <div class="glass">
+            <h2>Add expense</h2>
 
-        <div id="mono-status" class="muted" style="margin-top:10px;"></div>
-        <ul id="mono-list" style="margin-top:12px;"></ul>
+            <label for="amount">Amount</label>
+            <input id="amount" placeholder="100">
+
+            <label for="currency">Currency</label>
+            <select id="currency">
+                <option value="UAH">UAH</option>
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+            </select>
+
+            <div id="fx-box" class="muted" style="margin-top:-4px; margin-bottom:10px;">
+              Loading rate…
+            </div>
+
+            <label for="category">Category</label>
+            <input id="category" placeholder="Food / Transport / etc">
+
+            <button onclick="addExpense()">Add Expense</button>
+        </div>
+
+        <div class="glass">
+            <h2>Filter expenses</h2>
+
+            <label for="filter-category">Category</label>
+            <select id="filter-category">
+                <option value="">All</option>
+            </select>
+
+            <div class="row">
+                <div>
+                    <label for="filter-from">From</label>
+                    <input id="filter-from" type="date">
+                </div>
+                <div>
+                    <label for="filter-to">To</label>
+                    <input id="filter-to" type="date">
+                </div>
+            </div>
+
+            <button onclick="loadExpenses()">Apply Filter</button>
+
+            <hr class="sep">
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+               <h2 style="margin:0;">Monobank sync</h2>
+               <button class="icon-btn" onclick="openSettings()" title="Settings">⚙️</button>
+             </div>
+
+<button onclick="syncMonobank()">Sync from Monobank</button>
+            <div id="mono-status" class="muted" style="margin-top:10px;"></div>
+        </div>
+
     </div>
 
-    <div class="glass">
-        <h2>Expenses list</h2>
-        <ul id="list"></ul>
+   
+    <div class="main">
+        <div class="glass">
+            <h2>Expenses list</h2>
+            <div class="muted">
+                Тут з’являються операції після додавання їх з меню зліва, або синхронізацію з банком
+            </div>
+            <ul id="list"></ul>
+        </div>
+    </div>
+
+    
+    <div class="right">
+        <div class="glass">
+            <h2>Monobank statement</h2>
+            <div class="muted">
+                Тут з’являються операції після Sync. Натисни “Add to tracker”, щоб додати синхронізувати сплати з Monobank
+            </div>
+
+            <ul id="mono-list" style="margin-top:12px;"></ul>
+        </div>
     </div>
 
 </div>
@@ -424,11 +496,6 @@ async function loadCategories() {
         filterSelect.appendChild(option);
     });
 }
-
-/* -------------------------
-   Monobank currency: fill currency select
-   Public endpoint /bank/currency is cached & updates about every 5 minutes. :contentReference[oaicite:3]{index=3}
-------------------------- */
 
 
 let fxRates = {};      
