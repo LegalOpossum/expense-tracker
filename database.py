@@ -4,13 +4,16 @@ engine = create_engine("postgresql://tracker:trackerpass@localhost:5433/trackerd
 metadata = MetaData()
 
 expenses = Table(
-    "expenses",
-    metadata,
-    Column("id", Integer, primary_key=True),
-    Column("amount", Numeric, nullable=False),
-    Column("currency", String(3), nullable=False),
-    Column("category", String),
-    Column("created_at", TIMESTAMP, server_default=func.now()),  
+  "expenses",
+  metadata,
+  Column("id", Integer, primary_key=True),
+  Column("amount", Numeric, nullable=False),
+  Column("currency", String(3), nullable=False),
+  Column("category", String),
+  Column("mono_account_id", String, nullable=True),
+  Column("mono_account_type", String, nullable=True),
+  Column("mono_masked_pan", String, nullable=True),
+  Column("created_at", TIMESTAMP, server_default=func.now()),
 )
 
 metadata.create_all(engine)

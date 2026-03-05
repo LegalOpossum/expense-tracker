@@ -262,6 +262,12 @@ hr.sep {
                 <option value="">All</option>
             </select>
 
+            <label for="filter-account">Card</label>
+            <select id="filter-account">
+                <option value="">All</option>
+                <option value="__manual__">Manual (not from monobank)</option>
+            </select>
+
             <div class="row">
                 <div>
                     <label for="filter-from">From</label>
@@ -282,7 +288,14 @@ hr.sep {
                <button class="icon-btn" onclick="openSettings()" title="Settings">⚙️</button>
              </div>
 
-<button onclick="syncMonobank()">Sync from Monobank</button>
+             <label for="mono-account" style="margin-top:10px;">Monobank card</label>
+             <select id="mono-account">
+                  <option value="0">Default (0)</option>
+             </select>
+
+             <div class="muted" id="mono-accounts-status" style="margin-top:6px;"></div>
+
+        <button onclick="syncMonobank()">Sync from Monobank</button>
             <div id="mono-status" class="muted" style="margin-top:10px;"></div>
         </div>
 
@@ -304,7 +317,7 @@ hr.sep {
         <div class="glass">
             <h2>Monobank statement</h2>
             <div class="muted">
-                Тут з’являються операції після Sync. Натисни “Add to tracker”, щоб додати синхронізувати сплати з Monobank
+                Тут з’являються операції після Sync. Натисни “Sync from Monobank”, щоб синхронізувати сплати з Monobank
             </div>
 
             <ul id="mono-list" style="margin-top:12px;"></ul>
@@ -419,38 +432,45 @@ async function addExpense() {
 }
 
 async function loadExpenses() {
-    const category = document.getElementById("filter-category").value;
-    const dateFrom = document.getElementById("filter-from").value;
-    const dateTo = document.getElementById("filter-to").value;
+  const category = document.getElementById("filter-category").value;
+  const dateFrom = document.getElementById("filter-from").value;
+  const dateTo = document.getElementById("filter-to").value;
+  const acc = document.getElementById("filter-account")?.value || "";
 
-    const params = new URLSearchParams();
-    if (category) params.append("category", category);
-    if (dateFrom) params.append("date_from", dateFrom + "T00:00:00");
-    if (dateTo) params.append("date_to", dateTo + "T23:59:59");
+  const params = new URLSearchParams();
+  if (category) params.append("category", category);
+  if (dateFrom) params.append("date_from", dateFrom + "T00:00:00");
+  if (dateTo) params.append("date_to", dateTo + "T23:59:59");
 
-    const res = await fetch("/expenses?" + params.toString());
-    const expenses = await res.json();
+  if (acc) params.append("account_id", acc);
 
-    const list = document.getElementById("list");
-    list.innerHTML = "";
+  const res = await fetch("/expenses?" + params.toString());
+  const expenses = await res.json();
 
-    expenses.forEach(e => {
-        const li = document.createElement("li");
+  const list = document.getElementById("list");
+  list.innerHTML = "";
 
-        li.innerHTML = `
-            <div class="item-row">
-                <div>
-                    <b>${e.amount} ${e.currency}</b><br>
-                    <small>${e.category} • ${new Date(e.created_at).toLocaleDateString()}</small>
-                </div>
-                <div class="actions">
-                    <button onclick="editExpense(${e.id})">Edit</button>
-                    <button onclick="deleteExpense(${e.id})">Delete</button>
-                </div>
-            </div>
-        `;
-        list.appendChild(li);
-    });
+  expenses.forEach(e => {
+    const li = document.createElement("li");
+
+    const pan = e.mono_masked_pan ? e.mono_masked_pan.slice(-4) : "";
+    const type = e.mono_account_type ? e.mono_account_type.toUpperCase() : "";
+    const badge = e.mono_account_id ? `${type}${pan ? " • " + pan : ""}` : "MANUAL";
+
+    li.innerHTML = `
+      <div class="item-row">
+        <div>
+          <b>${e.amount} ${e.currency}</b><br>
+          <small>${e.category} • ${new Date(e.created_at).toLocaleDateString()} • <span class="badge">${badge}</span></small>
+        </div>
+        <div class="actions">
+          <button onclick="editExpense(${e.id})">Edit</button>
+          <button onclick="deleteExpense(${e.id})">Delete</button>
+        </div>
+      </div>
+    `;
+    list.appendChild(li);
+  });
 }
 
 async function editExpense(id) {
@@ -482,19 +502,43 @@ async function deleteExpense(id) {
 }
 
 async function loadCategories() {
-    const res = await fetch("/expenses");
-    const expenses = await res.json();
+  const res = await fetch("/expenses");
+  const expenses = await res.json();
 
-    const uniqueCategories = [...new Set(expenses.map(e => e.category).filter(Boolean))];
+  // categories
+  const uniqueCategories = [...new Set(expenses.map(e => e.category).filter(Boolean))];
+  const filterSelect = document.getElementById("filter-category");
+  filterSelect.innerHTML = "<option value=''>All</option>";
+  uniqueCategories.forEach(cat => {
+    const option = document.createElement("option");
+    option.value = cat;
+    option.innerText = cat;
+    filterSelect.appendChild(option);
+  });
 
-    const filterSelect = document.getElementById("filter-category");
-    filterSelect.innerHTML = "<option value=''>All</option>";
-    uniqueCategories.forEach(cat => {
-        const option = document.createElement("option");
-        option.value = cat;
-        option.innerText = cat;
-        filterSelect.appendChild(option);
+  // accounts
+  const accSelect = document.getElementById("filter-account");
+  if (accSelect) {
+    const uniq = new Map(); // key: account_id -> label
+    expenses.forEach(e => {
+      if (!e.mono_account_id) return;
+      const pan = e.mono_masked_pan ? e.mono_masked_pan.slice(-4) : "";
+      const type = e.mono_account_type ? e.mono_account_type.toUpperCase() : "CARD";
+      const label = `${type}${pan ? " • " + pan : ""}`;
+      uniq.set(e.mono_account_id, label);
     });
+
+    accSelect.innerHTML = `
+      <option value="">All</option>
+      <option value="__manual__">Manual (not from monobank)</option>
+    `;
+    [...uniq.entries()].forEach(([id, label]) => {
+      const opt = document.createElement("option");
+      opt.value = id;
+      opt.textContent = label;
+      accSelect.appendChild(opt);
+    });
+  }
 }
 
 
@@ -517,6 +561,7 @@ function pickRate(item) {
 loadCurrenciesFromMonobank();
 loadCategories();
 loadExpenses();
+loadMonoAccounts();
 
 
 async function loadCurrenciesFromMonobank() {
@@ -631,6 +676,76 @@ function renderMonobankList(items) {
     });
 }
 
+function monoAccountLabel(a) {
+  // типи в mono зазвичай типу: "black", "white", "jar", "fop" (може відрізнятись)
+  const type = a.type ? a.type.toUpperCase() : "CARD";
+  const last4 = Array.isArray(a.maskedPan) && a.maskedPan[0]
+    ? a.maskedPan[0].slice(-4)
+    : "";
+  const ccy = a.currency || "";
+  return `${type}${last4 ? " • " + last4 : ""}${ccy ? " • " + ccy : ""}`;
+}
+
+function setMonoAccountsStatus(text, cls="muted") {
+  const el = document.getElementById("mono-accounts-status");
+  if (!el) return;
+  el.className = cls;
+  el.textContent = text;
+}
+
+async function loadMonoAccounts() {
+  const token = getSavedToken();
+  const monoSelect = document.getElementById("mono-account");
+  if (!monoSelect) return;
+
+  // якщо токена нема — просто лишаємо Default(0)
+  if (!token) {
+    setMonoAccountsStatus("Token is not set (open ⚙️ Settings).", "warn");
+    monoSelect.innerHTML = `<option value="0">Default (0)</option>`;
+    return;
+  }
+
+  setMonoAccountsStatus("Loading accounts…");
+
+  const res = await fetch("/monobank/accounts", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ token })
+  });
+
+  if (!res.ok) {
+    const txt = await res.text();
+    setMonoAccountsStatus("Accounts load failed: " + txt, "warn");
+    monoSelect.innerHTML = `<option value="0">Default (0)</option>`;
+    return;
+  }
+
+  const accounts = await res.json();
+
+  // наповнюємо селект для синку
+  monoSelect.innerHTML = `<option value="0">Default (0)</option>`;
+  accounts.forEach(a => {
+    const opt = document.createElement("option");
+    opt.value = a.id;                 // account id для statement
+    opt.textContent = monoAccountLabel(a);
+    opt.dataset.type = a.type || "";
+    opt.dataset.pan = (a.maskedPan && a.maskedPan[0]) ? a.maskedPan[0] : "";
+    monoSelect.appendChild(opt);
+  });
+
+  setMonoAccountsStatus(`Loaded: ${accounts.length} account(s).`);
+
+  // збережемо вибір локально
+  const saved = localStorage.getItem("mono_selected_account");
+  if (saved && [...monoSelect.options].some(o => o.value === saved)) {
+    monoSelect.value = saved;
+  }
+
+  monoSelect.addEventListener("change", () => {
+    localStorage.setItem("mono_selected_account", monoSelect.value);
+  });
+}
+
 async function syncMonobank() {
     const token = getSavedToken();
     if (!token) {
@@ -653,15 +768,17 @@ async function syncMonobank() {
     setMonoStatus("Sync in progress…");
 
 
-    const res = await fetch("/monobank/statement", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-            token,
-            account: "0",
-            from: fromSec,
-            to: toSec
-        })
+  const monoAccount = document.getElementById("mono-account")?.value || "0";
+
+  const res = await fetch("/monobank/statement", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      token,
+      account: monoAccount,
+      from: fromSec,
+      to: toSec
+     })
     });
 
     if (!res.ok) {
@@ -676,27 +793,35 @@ async function syncMonobank() {
 }
 
 async function addMonoOperationToTracker(op) {
+  const monoSelect = document.getElementById("mono-account");
+  const selectedOpt = monoSelect ? monoSelect.options[monoSelect.selectedIndex] : null;
 
-    const data = {
-        amount: Number(op.amount),
-        currency: op.currency,
-        category: op.category || (op.description ? op.description.slice(0, 40) : "Monobank")
-    };
+  const data = {
+    amount: Number(op.amount),
+    currency: op.currency,
+    category: op.category || (op.description ? op.description.slice(0, 40) : "Monobank"),
 
-    await fetch("/expenses", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(data)
-    });
+    // нові поля (бек додамо нижче)
+    mono_account_id: op.mono_account_id || (monoSelect ? monoSelect.value : null),
+    mono_account_type: op.mono_account_type || (selectedOpt ? selectedOpt.dataset.type : null),
+    mono_masked_pan: op.mono_masked_pan || (selectedOpt ? selectedOpt.dataset.pan : null)
+  };
 
-    await loadCategories();
-    loadExpenses();
+  await fetch("/expenses", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(data)
+  });
+
+  await loadCategories();
+  loadExpenses();
 }
 
 
 loadCurrenciesFromMonobank();
 loadCategories();
 loadExpenses();
+loadMonoAccounts();
 </script>
 
 </body>
