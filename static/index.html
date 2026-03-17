@@ -213,6 +213,27 @@ hr.sep {
     width: auto;
     padding: 10px 12px;
 }
+.info-grid {
+    display: grid;
+    gap: 10px;
+    margin-top: 12px;
+}
+.info-row {
+    background: rgba(255,255,255,0.04);
+    border-radius: 12px;
+    padding: 10px 12px;
+}
+.info-key {
+    display: block;
+    font-size: 11px;
+    opacity: 0.65;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.info-value {
+    word-break: break-word;
+}
 .success { color: #9EF2B0; }
 .warn { color: #F2C69E; }
 </style>
@@ -251,6 +272,9 @@ hr.sep {
             <label for="category">Category</label>
             <input id="category" placeholder="Food / Transport / etc">
 
+            <label for="expense-date">Expense date</label>
+            <input id="expense-date" type="date">
+
             <button onclick="addExpense()">Add Expense</button>
         </div>
 
@@ -278,6 +302,27 @@ hr.sep {
                     <input id="filter-to" type="date">
                 </div>
             </div>
+
+            <div class="row">
+                <div>
+                    <label for="filter-amount">Amount</label>
+                    <input id="filter-amount" type="number" step="0.01" placeholder="100">
+                </div>
+                <div>
+                    <label for="filter-currency-code">Currency code</label>
+                    <select id="filter-currency-code">
+                        <option value="">All</option>
+                        <option value="UAH">UAH</option>
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="GBP">GBP</option>
+                        <option value="PLN">PLN</option>
+                    </select>
+                </div>
+            </div>
+
+            <label for="filter-description">Description</label>
+            <input id="filter-description" placeholder="Description or payment purpose">
 
             <button onclick="loadExpenses()">Apply Filter</button>
 
@@ -354,6 +399,22 @@ hr.sep {
     </div>
 </div>
 
+<!-- Transaction Info Modal -->
+<div id="tx-info-overlay" class="modal-overlay">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title">Transaction info</div>
+            <button class="icon-btn modal-close" onclick="closeTransactionInfo()">✕</button>
+        </div>
+
+        <div class="muted">
+            Тут показані лише поля, по яких можна фільтрувати цю операцію.
+        </div>
+
+        <div id="tx-info-content" class="info-grid"></div>
+    </div>
+</div>
+
 <script>
 /* -------------------------
    Helpers
@@ -370,6 +431,65 @@ function isoToUnixSeconds(isoDate, endOfDay=false) {
 
 function getSavedToken() {
     return localStorage.getItem("monoToken") || "";
+}
+
+function normalizeSearchValue(value) {
+    return (value || "").normalize("NFC").trim().replace(/\s+/g, " ");
+}
+
+function currencyCodeLabel(code) {
+    const map = {
+      980: "UAH",
+      840: "USD",
+      978: "EUR",
+      826: "GBP",
+      985: "PLN"
+    };
+    return map[code] || String(code);
+}
+
+function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+}
+
+function getFilterableFields(item) {
+    return [
+      { label: "Category", value: item.category || null },
+      { label: "Amount", value: item.amount !== null && item.amount !== undefined ? `${item.amount} ${item.currency || ""}`.trim() : null },
+      { label: "Currency", value: item.currency_code ? `${currencyCodeLabel(item.currency_code)} (${item.currency_code})` : (item.currency || null) },
+      { label: "MCC", value: item.mcc || null },
+      { label: "MCC category", value: item.mcc_category || null },
+      { label: "Description", value: item.description || null },
+      { label: "Payment purpose", value: item.comment || null }
+    ].filter(field => field.value !== null && field.value !== undefined && String(field.value).trim() !== "");
+}
+
+function openTransactionInfo(item) {
+    const overlay = document.getElementById("tx-info-overlay");
+    const content = document.getElementById("tx-info-content");
+    const fields = getFilterableFields(item);
+
+    if (!fields.length) {
+      content.innerHTML = `<div class="info-row"><span class="info-key">No filter data</span><div class="info-value muted">Для цієї операції немає додаткових полів для фільтрації.</div></div>`;
+    } else {
+      content.innerHTML = fields.map(field => `
+        <div class="info-row">
+          <span class="info-key">${escapeHtml(field.label)}</span>
+          <div class="info-value">${escapeHtml(field.value)}</div>
+        </div>
+      `).join("");
+    }
+
+    overlay.style.display = "flex";
+}
+
+function closeTransactionInfo() {
+    document.getElementById("tx-info-overlay").style.display = "none";
 }
 
 /* -------------------------
@@ -415,17 +535,27 @@ function renderTokenStatus(afterAction=false) {
 ------------------------- */
 
 async function addExpense() {
+    const expenseDate = document.getElementById("expense-date").value;
     const data = {
         amount: Number(document.getElementById("amount").value),
         currency: document.getElementById("currency").value,
         category: document.getElementById("category").value
     };
 
+    if (expenseDate) {
+        data.created_at = `${expenseDate}T00:00:00`;
+    }
+
     await fetch("/expenses", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify(data)
     });
+
+    document.getElementById("amount").value = "";
+    document.getElementById("category").value = "";
+    setDefaultExpenseDate();
+    updateFxUI();
 
     await loadCategories();
     loadExpenses();
@@ -436,13 +566,18 @@ async function loadExpenses() {
   const dateFrom = document.getElementById("filter-from").value;
   const dateTo = document.getElementById("filter-to").value;
   const acc = document.getElementById("filter-account")?.value || "";
+  const amount = document.getElementById("filter-amount").value;
+  const currencyCode = document.getElementById("filter-currency-code").value;
+  const description = normalizeSearchValue(document.getElementById("filter-description").value);
 
   const params = new URLSearchParams();
   if (category) params.append("category", category);
   if (dateFrom) params.append("date_from", dateFrom + "T00:00:00");
   if (dateTo) params.append("date_to", dateTo + "T23:59:59");
-
   if (acc) params.append("account_id", acc);
+  if (amount) params.append("amount", amount);
+  if (currencyCode) params.append("currency_code", currencyCode);
+  if (description) params.append("description", description);
 
   const res = await fetch("/expenses?" + params.toString());
   const expenses = await res.json();
@@ -456,14 +591,34 @@ async function loadExpenses() {
     const pan = e.mono_masked_pan ? e.mono_masked_pan.slice(-4) : "";
     const type = e.mono_account_type ? e.mono_account_type.toUpperCase() : "";
     const badge = e.mono_account_id ? `${type}${pan ? " • " + pan : ""}` : "MANUAL";
+    const details = [
+      e.description,
+      e.comment ? `Purpose: ${e.comment}` : "",
+      e.mcc ? `MCC: ${e.mcc}` : "",
+      e.mcc_category ? `MCC category: ${e.mcc_category}` : "",
+      e.currency_code ? `currencyCode: ${currencyCodeLabel(e.currency_code)} (${e.currency_code})` : ""
+    ].filter(Boolean);
+    const detailsHtml = details.length
+      ? `<br><small class="muted">${details.join(" • ")}</small>`
+      : "";
 
     li.innerHTML = `
       <div class="item-row">
         <div>
           <b>${e.amount} ${e.currency}</b><br>
-          <small>${e.category} • ${new Date(e.created_at).toLocaleDateString()} • <span class="badge">${badge}</span></small>
+          <small>${e.category} • ${new Date(e.created_at).toLocaleDateString()} • <span class="badge">${badge}</span></small>${detailsHtml}
         </div>
         <div class="actions">
+          <button onclick='openTransactionInfo(${JSON.stringify({
+            category: e.category,
+            amount: e.amount,
+            currency: e.currency,
+            currency_code: e.currency_code,
+            mcc: e.mcc,
+            mcc_category: e.mcc_category,
+            description: e.description,
+            comment: e.comment,
+          }).replace(/'/g, "&apos;")})'>Info</button>
           <button onclick="editExpense(${e.id})">Edit</button>
           <button onclick="deleteExpense(${e.id})">Delete</button>
         </div>
@@ -668,6 +823,16 @@ function renderMonobankList(items) {
                     <small>${op.description || "Monobank"} • ${dateText}</small>
                 </div>
                 <div class="actions">
+                    <button onclick='openTransactionInfo(${JSON.stringify({
+                      category: op.mcc_category || op.category || null,
+                      amount: op.amount,
+                      currency: op.currency,
+                      currency_code: op.currency_code,
+                      mcc: op.mcc,
+                      mcc_category: op.mcc_category,
+                      description: op.description,
+                      comment: op.comment,
+                    }).replace(/'/g, "&apos;")})'>Info</button>
                     <button onclick='addMonoOperationToTracker(${JSON.stringify(op).replace(/'/g, "&apos;")})'>Add to tracker</button>
                 </div>
             </div>
@@ -799,7 +964,15 @@ async function addMonoOperationToTracker(op) {
   const data = {
     amount: Number(op.amount),
     currency: op.currency,
-    category: op.category || (op.description ? op.description.slice(0, 40) : "Monobank"),
+    category: op.mcc_category || op.category || (op.description ? op.description.slice(0, 40) : "Monobank"),
+    created_at: op.time ? new Date(op.time * 1000).toISOString().slice(0, 19) : undefined,
+    description: op.description || null,
+    comment: op.comment || null,
+    mcc: op.mcc || null,
+    mcc_category: op.mcc_category || null,
+    counter_name: op.counter_name || null,
+    counter_edrpou: op.counter_edrpou || null,
+    currency_code: op.currency_code || null,
 
     // нові поля (бек додамо нижче)
     mono_account_id: op.mono_account_id || (monoSelect ? monoSelect.value : null),
@@ -817,11 +990,18 @@ async function addMonoOperationToTracker(op) {
   loadExpenses();
 }
 
+function setDefaultExpenseDate() {
+  const expenseDateInput = document.getElementById("expense-date");
+  if (!expenseDateInput) return;
+  expenseDateInput.value = new Date().toISOString().split("T")[0];
+}
+
 
 loadCurrenciesFromMonobank();
 loadCategories();
 loadExpenses();
 loadMonoAccounts();
+setDefaultExpenseDate();
 </script>
 
 </body>
